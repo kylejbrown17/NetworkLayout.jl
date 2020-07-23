@@ -23,31 +23,28 @@ struct Layout{M<:AbstractMatrix, P<:AbstractVector, T<:AbstractFloat}
     C::T
     K::T
     iterations::Int
+    constraints::Vector{Int}
 end
 
-function Layout(
-        adj_matrix, PT::Type{Point{N, T}}=Point{2, Float64};
-        startpositions=(2*rand(typ, size(adj_matrix,1)) .- 1),
-        tol=1.0, C=0.2, K=1.0, iterations=100
-    ) where {N, T}
-    Layout(adj_matrix, startpositions, T(tol), T(C), T(K), Int(iterations))
-end
+# function Layout(
+#         adj_matrix, PT::Type{Point{N, T}}=Point{2, Float64};
+#         startpositions=(2*rand(PT, size(adj_matrix,1)) .- 1),
+#         tol=1.0, C=0.2, K=1.0, iterations=100, constraints = Int[]
+#     ) where {N, T}
+#     Layout(adj_matrix, startpositions, T(tol), T(C), T(K), Int(iterations), constraints)
+# end
+#
+# layout(adj_matrix, dim::Int; kw_args...) = layout(adj_matrix, Point{dim,Float64}; kw_args...)
+#
+# function layout(
+#         adj_matrix, typ::Type{Point{N, T}}=Point{2, Float64};
+#         startpositions = (2*rand(typ, size(adj_matrix,1)) .- 1),
+#         kw_args...
+#     ) where {N, T}
+#     layout!(adj_matrix,startpositions;kw_args...)
+# end
 
-layout(adj_matrix, dim::Int; kw_args...) = layout(adj_matrix, Point{dim,Float64}; kw_args...)
-
-function layout(
-        adj_matrix, typ::Type{Point{N, T}}=Point{2, Float64};
-        startpositions = (2*rand(typ, size(adj_matrix,1)) .- 1),
-        kw_args...
-    ) where {N, T}
-    layout!(adj_matrix,startpositions;kw_args...)
-end
-
-function layout!(adj_matrix,
-         startpositions::AbstractVector{Point{N, T}};
-         kw_args...
-    ) where {N, T}
-    network = Layout(adj_matrix, Point{N,T}; startpositions=startpositions, kw_args...)
+function layout!(network::layout)
     next = iterate(network)
     while next != nothing
         (i, state) = next
@@ -67,6 +64,7 @@ end
 function iterate(network::Layout, state)
     step, energy, progress, start, iter, locs0 = state
     K, C, tol, adj_matrix = network.K, network.C, network.tol, network.adj_matrix
+    constraints = network.constraints
     locs = network.positions; locs0 = copy(locs)
     energy0 = energy; energy = zero(energy)
     F = eltype(locs); N = size(adj_matrix,1)
@@ -82,7 +80,9 @@ function iterate(network::Layout, state)
                 force += F(f_repln(locs[i],locs[j],C,K) * ((locs[j] - locs[i]) / norm(locs[j] - locs[i])))
             end
         end
-        locs[i] = locs[i] + step * (force / norm(force))
+        if !(i in constraints)
+            locs[i] = locs[i] + step * (force / norm(force))
+        end
         energy = energy + norm(force)^2
     end
     step, progress = update_step(step, energy, energy0, progress)
