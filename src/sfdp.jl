@@ -44,7 +44,7 @@ end
 #     layout!(adj_matrix,startpositions;kw_args...)
 # end
 
-function layout!(network::layout)
+function layout!(network::Layout)
     next = iterate(network)
     while next != nothing
         (i, state) = next
@@ -74,7 +74,7 @@ function iterate(network::Layout, state)
             i == j && continue
             if adj_matrix[i,j] == 1
             # Attractive forces for adjacent nodes
-                force += F(f_attr(locs[i],locs[j],K) * ((locs[j] - locs[i]) / norm(locs[j] - locs[i])))
+                force += F(f_attr(locs[i],locs[j],K,network.tol) * ((locs[j] - locs[i]) / norm(locs[j] - locs[i])))
             else
             # Repulsive forces
                 force += F(f_repln(locs[i],locs[j],C,K) * ((locs[j] - locs[i]) / norm(locs[j] - locs[i])))
@@ -88,7 +88,7 @@ function iterate(network::Layout, state)
     step, progress = update_step(step, energy, energy0, progress)
 
     if iter == network.iterations && !start ||
-       dist_tolerance(network.positions, locs0, network.K, network.tol)
+        dist_tolerance(network.positions, locs0, network.K, network.tol)
         return nothing
     end
 
@@ -96,9 +96,9 @@ function iterate(network::Layout, state)
 end
 
 # Calculate Attractive force
-f_attr(a, b, K) = (norm(a-b)^2) / K
+f_attr(a, b, K, l0=0) = (norm(a-b)^2 - l0) / K
 # Calculate Repulsive force
-f_repln(a, b, C, K) = -C*(K^2) / norm(a-b)
+f_repln(a, b, C, K, l0=0) = -C*(K^2) / norm(a-b)^2
 
 function update_step(step, energy::T, energy0, progress) where {T}
     # cooldown step
